@@ -151,38 +151,38 @@ def generate_report(prefix, store_name, sqlite_db, output_csv):
 
 
 def main():
-    prefix = "6045"
+    prefix = PREFIX  # Use the global PREFIX variable
     parent_path = f"/tmp/extracted/{prefix}"
 
     # 1) Find "Data" subfolder ignoring case
-    data_folder = find_subfolder_case_insensitive(parent_path, "data")
+    data_folder = find_case_insensitive(
+        parent_path, "data"
+    )  # Fix incorrect function call
     if not data_folder:
         print(f"Error: no 'data' subfolder found (ignoring case) in {parent_path}")
         return
 
-    # 2) Now find jnl.dbf ignoring case inside that subfolder
+    # 2) Find jnl.dbf inside that subfolder
     jnl_path = find_case_insensitive(data_folder, "jnl.dbf")
     if not jnl_path:
         print("No jnl data found, aborting.")
         return
 
-    # 3) Same for str.dbf if needed
+    # 3) Find str.dbf (for store name)
     str_path = find_case_insensitive(data_folder, "str.dbf")
-    if not str_path:
-        print("No str data found, aborting.")
-        return
+    store_name = read_store_name_from_strdbf(str_path) if str_path else "UnknownStore"
 
-    # 4) Import jnl.dbf => SQLite
-    imported = import_jnl_to_sqlite(JNL_DBF_PATH, SQLITE_DB)
+    # 4) Import jnl.dbf into SQLite
+    imported = import_jnl_to_sqlite(jnl_path, SQLITE_DB)
     if imported == 0:
         print("No jnl data imported, aborting.")
         return
 
     # 5) Generate final aggregated report => CSV
-    generate_report(PREFIX, store_name, SQLITE_DB, OUTPUT_CSV)
+    generate_report(prefix, store_name, SQLITE_DB, OUTPUT_CSV)
 
     # 6) (Optional) remove the temp DB
-    # os.remove(SQLITE_DB)
+    os.remove(SQLITE_DB)  # Fix indentation
 
 
 if __name__ == "__main__":
