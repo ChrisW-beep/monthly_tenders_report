@@ -6,10 +6,21 @@ from dbfread import DBF
 
 # Adjust these paths as needed
 PREFIX = "6045"  # e.g. your store prefix => Astoreid
-STR_DBF_PATH = "/tmp/extracted/6045/Data/str.dbf"
-JNL_DBF_PATH = "/tmp/extracted/6045/Data/jnl.dbf"
+STR_DBF_PATH = "/tmp/extracted/6045/data/str.dbf"
+JNL_DBF_PATH = "/tmp/extracted/6045/data/jnl.dbf"
 SQLITE_DB = "temp_jnl.db"
 OUTPUT_CSV = "./reports/monthly_sales_report.csv"
+
+
+def find_case_insensitive(folder, filename):
+    # e.g. filename="jnl.dbf" => look for any case version
+    for f in os.listdir(folder):
+        if f.lower() == filename.lower():
+            return os.path.join(folder, f)
+    return None
+
+
+
 
 
 def read_store_name_from_strdbf(str_dbf_path):
@@ -143,19 +154,39 @@ def generate_report(prefix, store_name, sqlite_db, output_csv):
 
 
 def main():
-    # 1) Read store name from str.dbf
+    # Instead of hard-coding, we do:
+    data_folder = "/tmp/extracted/6045/data"
+
+    # 1) Find jnl.dbf ignoring case
+    jnl_path = find_case_insensitive(data_folder, "jnl.dbf")
+    if not jnl_path:
+        print("No jnl data found, aborting.")
+        return  # or exit(1)
+    # Overwrite JNL_DBF_PATH to the actual file path
+    global JNL_DBF_PATH
+    JNL_DBF_PATH = jnl_path
+
+    # 2) Find str.dbf ignoring case
+    str_path = find_case_insensitive(data_folder, "str.dbf")
+    if not str_path:
+        print("Warning: no str.dbf found, store name fallback = 'UnknownStore'")
+    else:
+        global STR_DBF_PATH
+        STR_DBF_PATH = str_path
+
+    # 3) Read store name from str.dbf
     store_name = read_store_name_from_strdbf(STR_DBF_PATH)
 
-    # 2) Import jnl.dbf => SQLite
+    # 4) Import jnl.dbf => SQLite
     imported = import_jnl_to_sqlite(JNL_DBF_PATH, SQLITE_DB)
     if imported == 0:
         print("No jnl data imported, aborting.")
         return
 
-    # 3) Generate final aggregated report => CSV
+    # 5) Generate final aggregated report => CSV
     generate_report(PREFIX, store_name, SQLITE_DB, OUTPUT_CSV)
 
-    # 4) (Optional) remove the temp DB
+    # 6) (Optional) remove the temp DB
     # os.remove(SQLITE_DB)
 
 
