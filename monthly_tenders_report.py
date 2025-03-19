@@ -151,28 +151,26 @@ def generate_report(prefix, store_name, sqlite_db, output_csv):
 
 
 def main():
-    # Instead of hard-coding, we do:
-    data_folder = "//tmp//extracted//6045//data"
+    prefix = "6045"
+    parent_path = f"/tmp/extracted/{prefix}"
 
-    # 1) Find jnl.dbf ignoring case
+    # 1) Find "Data" subfolder ignoring case
+    data_folder = find_subfolder_case_insensitive(parent_path, "data")
+    if not data_folder:
+        print(f"Error: no 'data' subfolder found (ignoring case) in {parent_path}")
+        return
+
+    # 2) Now find jnl.dbf ignoring case inside that subfolder
     jnl_path = find_case_insensitive(data_folder, "jnl.dbf")
     if not jnl_path:
         print("No jnl data found, aborting.")
-        return  # or exit(1)
-    # Overwrite JNL_DBF_PATH to the actual file path
-    global JNL_DBF_PATH
-    JNL_DBF_PATH = jnl_path
+        return
 
-    # 2) Find str.dbf ignoring case
+    # 3) Same for str.dbf if needed
     str_path = find_case_insensitive(data_folder, "str.dbf")
     if not str_path:
-        print("Warning: no str.dbf found, store name fallback = 'UnknownStore'")
-    else:
-        global STR_DBF_PATH
-        STR_DBF_PATH = str_path
-
-    # 3) Read store name from str.dbf
-    store_name = read_store_name_from_strdbf(STR_DBF_PATH)
+        print("No str data found, aborting.")
+        return
 
     # 4) Import jnl.dbf => SQLite
     imported = import_jnl_to_sqlite(JNL_DBF_PATH, SQLITE_DB)
