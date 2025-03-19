@@ -49,11 +49,14 @@ def import_jnl_to_sqlite(jnl_dbf_path, sqlite_db):
         return 0
 
     # Read the DBF
-    table = DBF(jnl_dbf_path, load=True)
+    table = DBF(jnl_dbf_path, load=False)
 
     # Connect to SQLite
     conn = sqlite3.connect(sqlite_db)
     cur = conn.cursor()
+    cur.execute("PRAGMA temp_store = MEMORY;")
+    cur.execute("PRAGMA cache_size = 5000;")
+
 
     # Drop old table if exists
     cur.execute("DROP TABLE IF EXISTS jnl_data;")
