@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+import os
+import csv
+import sqlite3
+from dbfread import DBF
+
+# Adjust these paths for your environment:
+STORE_ID = "6045"  # or pass it in from your pipeline or script argument
+STR_DBF_PATH = f"/tmp/extracted/{STORE_ID}/Data/str.dbf"
+JNL_DBF_PATH = f"/tmp/extracted/{STORE_ID}/Data/jnl.dbf"
+SQLITE_DB = "temp_data.db"  # temporary SQLite file
+OUTPUT_CSV = "./reports/monthly_sales_report.csv"
+
+def import_str_to_sqlite(dbf_path, sqlite_db):
+    """
+    Reads str.dbf to fetch the store name (NAME field).
+    We'll store all rows in a table named str_data, with row_num for ordering.
+    Typically str.dbf has only one row, but we'll handle multiple.
+    """
+    if not os.path.isfile(dbf_path):
+        print(f"Warning: str.dbf not found: {dbf_path}")
+        return 0
+
+    table = DBF(dbf_path, load=True)
+
+    conn = sqlite3.connect(sqlite_db)
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS str_data;")
+    # We'll store row_num plus the NAME column for the store name
+    create_sql = """
+        CREATE TABLE str_data (
+            row_num INTEGER PRIMARY KEY AUTOINCREMENT,
+            NAME TEXT
+        );
+    """
+    cur.execute(create_sql)
+
+    insert_sql = "INSERT INTO str_data (NAME) VALUES (?);"
+
+    row_count = 0
+    for record in table:
+        name_val = str(record.get("NAME", ""))  # fallback if missing
+        cur.execute(insert_sql, (name_val,))
+        row_count += 1
+
+    conn.commit()
+    conn.close()
+    print(f"Imported {row_count} rows from {dbf_path} into str_data.")
+    return row_count
+
+def import_jnl_to_sqlite(dbf_path, sqlite_db):
+    """
+    Reads jnl.dbf to import line-based data (LINE, PRICE, DATE, DESCRIPT).
+    We'll store row_num so we can detect consecutive lines in SQL (row_num+1).
+    """
+    if not os.path.isfile(dbf_path):
+        print(f"Warning: jnl.dbf not found: {dbf_path}")
+        return 0
+
+    table = DBF(dbf_path, load=True)
+
+    conn = sqlite3.connect(sqlite_db)
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS jnl_data;")
+
+    create_sql = """
+        CREATE TABLE jnl_data (
+            row_num INTEGER PRIMARY KEY AUTOINCREMENT,
+            LINE TEXT,
+            PRICE TEXT,
+            DATE TEXT,
+            DESCRIPT TEXT
+        );
+    """
+    cur.execute(create_sql)
+
+    insert_sql = """
+        INSERT INTO jnl_data (LINE, PRICE, DATE, DESCRIPT)
+        VALUES (?, ?, ?, ?);
+    """
+
+    row_count = 0
+    for record in table:
+        line_val = str(record.get("LINE", ""))
+        price_val = str(record.get("PRICE", ""))
+        date_val = str(record.get("DATE", ""))
+        descript_val = str(record.get("DESCRIPT", ""))
+
+        cur.execute(insert_sql, (line_val, price_val, date_val, descript_val))
+        row_count += 1
+
+    conn.commit()
+    conn.close()
+    print(f"Imported {row_count} rows from {dbf_path} into jnl_data.")
+    return row_count
+
+def generate_report(sqlite_db, store_id, output_csv):
+    """
+    1) Grab store_name from str_data (first row's NAME).
+    2) Do a self-join on jnl_data to find consecutive lines:
+       (LINE=950) => (LINE=980).
+    3) Group by (DATE, DESCRIPT) => sum(PRICE) as sale_amount, count(*).
+    4) Write final CSV with columns:
+       [Astoreid, Storename, date, Type, sale_amount, sale_count, currency].
+    """
+    conn = sqlite3.connect(sqlite_db)
+    cur = conn.cursor()
+
+    # 1) Fetch store_name from str_data. If no row, fallback = store_id
+    cur.execute("SELECT NAME FROM str_data LIMIT 1;")
+    row = cur.fetchone()
+    store_name = row[0] if row else store_id
+
+    # 2) Do the line-950 => line-980 logic
+    # We'll interpret PRICE as a float with CAST(a.PRICE as REAL)
+    # We'll group by a.DATE, b.DESCRIPT
+    # 'USD' is hard-coded for currency
+    # We'll also select store_id as Astoreid, and store_name as Storename
+    # We'll do a subselect for store_name or we can just pass it in from python.
+    sql = f"""
+    SELECT
+        '{store_id}' AS Astoreid,
+        '{store_name}' AS Storename,
+        a.DATE AS date,
+        b.DESCRIPT AS Type,
+        SUM(CAST(a.PRICE AS REAL)) AS sale_amount,
+        COUNT(*) AS sale_count,
+        'USD' AS currency
+    FROM jnl_data a
+    JOIN jnl_data b
+      ON b.row_num = a.row_num + 1
+     AND b.LINE='980'
+    WHERE a.LINE='950'
+    GROUP BY a.DATE, b.DESCRIPT
+    ORDER BY a.DATE, b.DESCRIPT;
+    """
+
+    cur.execute(sql)
+    rows = cur.fetchall()
+    colnames = [desc[0] for desc in cur.description]
+
+    # 3) Write CSV
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+    with open(output_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(colnames)
+        writer.writerows(rows)
+
+    print(f"Wrote final CSV to {output_csv}")
+    conn.close()
+
+def main():
+    # 1) Import str.dbf and jnl.dbf into SQLite
+    imported_str = import_str_to_sqlite(STR_DBF_PATH, SQLITE_DB)
+    imported_jnl = import_jnl_to_sqlite(JNL_DBF_PATH, SQLITE_DB)
+
+    if imported_jnl == 0:
+        print("No jnl data, aborting.")
+        return
+
+    # 2) Generate final aggregated report => CSV
+    generate_report(SQLITE_DB, STORE_ID, OUTPUT_CSV)
+
+    # 3) (Optional) remove the SQLite file if you don't need it anymore
+    # os.remove(SQLITE_DB)
+
+if __name__ == "__main__":
+    main()
