@@ -6,10 +6,10 @@ from dbfread import DBF
 
 # Adjust these paths as needed
 PREFIX = "6045"  # e.g. your store prefix => Astoreid
-STR_DBF_PATH = "/tmp/extracted/6045/data/str.dbf"
-JNL_DBF_PATH = "/tmp/extracted/6045/data/jnl.dbf"
+# STR_DBF_PATH = "/tmp/extracted/6045/data/str.dbf"
+# JNL_DBF_PATH = "/tmp/extracted/6045/data/jnl.dbf"
 SQLITE_DB = "temp_jnl.db"
-OUTPUT_CSV = "./reports/monthly_sales_report.csv"
+OUTPUT_CSV = "./reports/monthly_tenders_report.csv"
 
 
 def read_store_name_from_strdbf(str_dbf_path):
