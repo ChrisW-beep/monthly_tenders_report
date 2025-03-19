@@ -12,17 +12,6 @@ SQLITE_DB = "temp_jnl.db"
 OUTPUT_CSV = "./reports/monthly_sales_report.csv"
 
 
-def find_case_insensitive(folder, filename):
-    # e.g. filename="jnl.dbf" => look for any case version
-    for f in os.listdir(folder):
-        if f.lower() == filename.lower():
-            return os.path.join(folder, f)
-    return None
-
-
-
-
-
 def read_store_name_from_strdbf(str_dbf_path):
     """
     Reads str.dbf (if it exists), returns the store name from the first row's 'NAME' field.
@@ -40,6 +29,14 @@ def read_store_name_from_strdbf(str_dbf_path):
             return str(name_val)
         break  # only read the first row
     return "UnknownStore"
+
+
+def find_case_insensitive(folder, filename):
+    # e.g. filename="jnl.dbf" => look for any case version
+    for f in os.listdir(folder):
+        if f.lower() == filename.lower():
+            return os.path.join(folder, f)
+    return None
 
 
 def import_jnl_to_sqlite(jnl_dbf_path, sqlite_db):
