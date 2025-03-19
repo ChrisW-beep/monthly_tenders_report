@@ -152,7 +152,7 @@ def generate_report(prefix, store_name, sqlite_db, output_csv):
 
 def main():
     # Instead of hard-coding, we do:
-    data_folder = "\\tmp\\extracted\\6045\\"
+    data_folder = "\\tmp\\extracted\\6045\\data\\"
 
     # 1) Find jnl.dbf ignoring case
     jnl_path = find_case_insensitive(data_folder, "jnl.dbf")
