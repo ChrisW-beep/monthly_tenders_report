@@ -3,15 +3,17 @@ import sys
 import csv
 from dbfread import DBF
 
-
 def convert(dbf_path, csv_path):
-    table = DBF(dbf_path, encoding="latin1", ignore_missing_memofile=True)
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(table.field_names)
-        for record in table:
-            writer.writerow(list(record.values()))
-
+    try:
+        table = DBF(dbf_path, encoding='latin1', ignore_missing_memofile=True)
+        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(table.field_names)
+            for record in table:
+                writer.writerow(list(record.values()))
+    except Exception as e:
+        print(f"Conversion failed explicitly: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
