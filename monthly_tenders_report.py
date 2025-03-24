@@ -5,10 +5,13 @@ import sqlite3
 from dbfread import DBF
 
 # Adjust these paths as needed
-PREFIX = "6045"  # e.g. your store prefix => Astoreid
+# PREFIX = "6045"  # e.g. your store prefix => Astoreid
 # STR_DBF_PATH = "/tmp/extracted/6045/data/str.dbf"
 # JNL_DBF_PATH = "/tmp/extracted/6045/data/jnl.dbf"
 SQLITE_DB = "temp_jnl.db"
+# Default values
+DEFAULT_EXTRACTED_ROOT = "/tmp/extracted"
+DEFAULT_PREFIX = "6045"
 OUTPUT_CSV = "./reports/monthly_tenders_report.csv"
 
 
