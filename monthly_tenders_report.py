@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import csv
+import pyarrow
 import pandas as pd
 
 EXTRACTED_ROOT = "/tmp/extracted"
