@@ -2,6 +2,7 @@
 import os
 import csv
 import sqlite3
+import sys
 from dbfread import DBF
 
 SQLITE_DB = "temp_jnl.db"
@@ -108,12 +109,12 @@ def process_prefix(prefix_dir, prefix, csv_writer):
     data_folder = find_case_insensitive(prefix_dir, "Data")
     if not data_folder:
         print(f"Skipping {prefix}: Data folder not found")
-        return
+        sys.exit(1)
 
     jnl_path = find_case_insensitive(data_folder, "jnl.dbf")
     if not jnl_path:
         print(f"Skipping {prefix}: jnl.dbf not found")
-        return
+        sys.exit(1)
 
     str_path = find_case_insensitive(data_folder, "str.dbf")
     store_name = read_store_name_from_strdbf(str_path) if str_path else "UnknownStore"
@@ -121,7 +122,7 @@ def process_prefix(prefix_dir, prefix, csv_writer):
     imported = import_jnl_to_sqlite(jnl_path, SQLITE_DB)
     if imported == 0:
         print(f"Skipping {prefix}: no data imported")
-        return
+       sys.exit(1)
 
     generate_report(prefix, store_name, SQLITE_DB, csv_writer)
 
