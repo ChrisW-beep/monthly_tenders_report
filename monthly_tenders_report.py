@@ -1,144 +1,56 @@
 #!/usr/bin/env python3
 import os
 import csv
-import sqlite3
-import sys
-from dbfread import DBF
+import pandas as pd
 
-SQLITE_DB = "temp_jnl.db"
 EXTRACTED_ROOT = "/tmp/extracted"
 OUTPUT_CSV = "./reports/monthly_tenders_report.csv"
 
+def process_prefix(prefix, data_folder, csv_writer):
+    jnl_csv = os.path.join(data_folder, "jnl.csv")
+    str_csv = os.path.join(data_folder, "str.csv")
 
-def read_store_name_from_strdbf(str_dbf_path):
-    if not os.path.isfile(str_dbf_path):
-        return "UnknownStore"
+    if not os.path.exists(jnl_csv):
+        raise FileNotFoundError(f"{prefix}: jnl.csv not found")
 
-    table = DBF(str_dbf_path, load=True)
-    for record in table:
-        name_val = record.get("NAME", None)
-        if name_val:
-            return str(name_val)
-        break
-    return "UnknownStore"
+    store_name = "UnknownStore"
+    if os.path.exists(str_csv):
+        df_str = pd.read_csv(str_csv)
+        if 'NAME' in df_str.columns and not df_str.empty:
+            store_name = df_str.iloc[0]['NAME']
 
+    df_jnl = pd.read_csv(jnl_csv, dtype=str).fillna("")
 
-def find_case_insensitive(folder, filename):
-    for f in os.listdir(folder):
-        if f.lower() == filename.lower():
-            return os.path.join(folder, f)
-    return None
+    # Add shifted LINE and DESCRIPT to detect consecutive 950->980 rows
+    df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
+    df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
 
+    df_filtered = df_jnl[
+        (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
+    ]
 
-def import_jnl_to_sqlite(jnl_dbf_path, sqlite_db):
-    if not os.path.isfile(jnl_dbf_path):
-        return 0
+    df_filtered["PRICE"] = pd.to_numeric(df_filtered["PRICE"], errors="coerce").fillna(0)
+    report = (
+        df_filtered.groupby(["DATE", "DESCRIPT_next"])
+        .agg(sale_amount=("PRICE", "sum"), sale_count=("PRICE", "count"))
+        .reset_index()
+    )
 
-    table = DBF(jnl_dbf_path, load=True)
-    conn = sqlite3.connect(sqlite_db)
-    cur = conn.cursor()
-    cur.execute("DROP TABLE IF EXISTS jnl_data;")
-    cur.execute("""
-        CREATE TABLE jnl_data (
-            row_num INTEGER PRIMARY KEY AUTOINCREMENT,
-            LINE TEXT,
-            PRICE TEXT,
-            DATE TEXT,
-            DESCRIPT TEXT
-        );
-    """)
-
-    insert_sql = "INSERT INTO jnl_data (LINE, PRICE, DATE, DESCRIPT) VALUES (?, ?, ?, ?);"
-
-    row_count = 0
-
-    # Start a single transaction for massive speedup
-    cur.execute("BEGIN TRANSACTION;")
-    try:
-        for record in table:
-            cur.execute(
-                insert_sql,
-                (
-                    str(record.get("LINE", "")),
-                    str(record.get("PRICE", "")),
-                    str(record.get("DATE", "")),
-                    str(record.get("DESCRIPT", "")),
-                ),
-            )
-            row_count += 1
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        raise e
-    finally:
-        conn.close()
-
-    return row_count
-
-
-
-def generate_report(prefix, store_name, sqlite_db, csv_writer):
-    conn = sqlite3.connect(sqlite_db)
-    cur = conn.cursor()
-
-    sql = """
-    SELECT
-        a.DATE as date,
-        b.DESCRIPT as Type,
-        SUM(CAST(a.PRICE as REAL)) as sale_amount,
-        COUNT(*) as sale_count
-    FROM jnl_data a
-    JOIN jnl_data b
-      ON b.row_num = a.row_num + 1
-     AND b.LINE='980'
-    WHERE a.LINE='950'
-    GROUP BY a.DATE, b.DESCRIPT
-    ORDER BY a.DATE, b.DESCRIPT;
-    """
-
-    cur.execute(sql)
-    rows = cur.fetchall()
-
-    for date_val, type_val, amount_val, count_val in rows:
-        row = [
-            prefix,
-            store_name,
-            date_val,
-            type_val,
-            amount_val,
-            count_val,
-            "USD",
-        ]
-        csv_writer.writerow(row)
-
-    conn.close()
-
-
-def process_prefix(prefix_dir, prefix, csv_writer):
-    data_folder = find_case_insensitive(prefix_dir, "Data")
-    if not data_folder:
-        raise FileNotFoundError(f"{prefix}: Data folder not found")
-
-    jnl_path = find_case_insensitive(data_folder, "jnl.dbf")
-    if not jnl_path:
-        raise FileNotFoundError(f"{prefix}: jnl.dbf not found")
-
-    str_path = find_case_insensitive(data_folder, "str.dbf")
-    store_name = read_store_name_from_strdbf(str_path) if str_path else "UnknownStore"
-
-    imported = import_jnl_to_sqlite(jnl_path, SQLITE_DB)
-    if imported == 0:
-        raise ValueError(f"{prefix}: no data imported from jnl.dbf")
-
-    generate_report(prefix, store_name, SQLITE_DB, csv_writer)
-    os.remove(SQLITE_DB)
-
-
+    for _, row in report.iterrows():
+        csv_writer.writerow(
+            [
+                prefix,
+                store_name,
+                row["DATE"],
+                row["DESCRIPT_next"],
+                row["sale_amount"],
+                row["sale_count"],
+                "USD",
+            ]
+        )
 
 def main():
-    prefixes = [
-        d for d in os.listdir(EXTRACTED_ROOT) if os.path.isdir(os.path.join(EXTRACTED_ROOT, d))
-    ]
+    prefixes = [d for d in os.listdir(EXTRACTED_ROOT) if os.path.isdir(os.path.join(EXTRACTED_ROOT, d))]
 
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
@@ -148,12 +60,11 @@ def main():
         )
 
         for prefix in prefixes:
-            prefix_dir = os.path.join(EXTRACTED_ROOT, prefix)
-            print(f"Processing prefix: {prefix}")
-            process_prefix(prefix_dir, prefix, csv_writer)
+            data_folder = os.path.join(EXTRACTED_ROOT, prefix, "Data")
+            print(f"Processing prefix: {prefix}", flush=True)
+            process_prefix(prefix, data_folder, csv_writer)
 
-    print(f"Report successfully written to {OUTPUT_CSV}")
-
+    print(f"Report written to {OUTPUT_CSV}", flush=True)
 
 if __name__ == "__main__":
     main()
