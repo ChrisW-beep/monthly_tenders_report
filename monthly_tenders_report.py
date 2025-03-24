@@ -51,21 +51,30 @@ def import_jnl_to_sqlite(jnl_dbf_path, sqlite_db):
     insert_sql = "INSERT INTO jnl_data (LINE, PRICE, DATE, DESCRIPT) VALUES (?, ?, ?, ?);"
 
     row_count = 0
-    for record in table:
-        cur.execute(
-            insert_sql,
-            (
-                str(record.get("LINE", "")),
-                str(record.get("PRICE", "")),
-                str(record.get("DATE", "")),
-                str(record.get("DESCRIPT", "")),
-            ),
-        )
-        row_count += 1
 
-    conn.commit()
-    conn.close()
+    # Start a single transaction for massive speedup
+    cur.execute("BEGIN TRANSACTION;")
+    try:
+        for record in table:
+            cur.execute(
+                insert_sql,
+                (
+                    str(record.get("LINE", "")),
+                    str(record.get("PRICE", "")),
+                    str(record.get("DATE", "")),
+                    str(record.get("DESCRIPT", "")),
+                ),
+            )
+            row_count += 1
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
     return row_count
+
 
 
 def generate_report(prefix, store_name, sqlite_db, csv_writer):
