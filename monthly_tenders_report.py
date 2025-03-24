@@ -36,8 +36,8 @@ def process_prefix(prefix, data_folder, csv_writer):
     df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
 
     df_filtered = df_jnl[
-        (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
-    ]
+    (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
+    ].copy()  # ✅ make an explicit copy
 
     df_filtered["PRICE"] = pd.to_numeric(df_filtered["PRICE"], errors="coerce").fillna(0)
     report = (
