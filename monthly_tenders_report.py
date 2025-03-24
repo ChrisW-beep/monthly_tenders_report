@@ -31,18 +31,25 @@ def process_prefix(prefix, data_folder, csv_writer):
             store_name = df_str.iloc[0]['NAME']
 
     df_jnl = pd.read_csv(jnl_csv, dtype=str).fillna("")
-
+    # Convert PRICE column to numeric
+    df_jnl["PRICE"] = pd.to_numeric(df_jnl["PRICE"], errors="coerce").fillna(0)
+    
+    # Create shifted columns for next and previous lines
     df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
     df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
+    df_jnl["LINE_prev"] = df_jnl["LINE"].shift(1)
+    df_jnl["PRICE_prev"] = df_jnl["PRICE"].shift(1)
 
-    df_filtered = df_jnl[
-    (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
-    ].copy()  # ✅ make an explicit copy
-
-    df_filtered["PRICE"] = pd.to_numeric(df_filtered["PRICE"], errors="coerce").fillna(0)
+    # Filter for rows where current line is 950 and next line is 980
+    df_filtered = df_jnl[(df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")].copy()
+    
+    # Subtract the PRICE of the previous row if it is from line 941
+    df_filtered["adj_PRICE"] = df_filtered["PRICE"] - df_filtered["PRICE_prev"].where(df_filtered["LINE_prev"] == "941", 0)
+    
+    # Aggregate using the adjusted price
     report = (
         df_filtered.groupby(["DATE", "DESCRIPT_next"])
-        .agg(sale_amount=("PRICE", "sum"), sale_count=("PRICE", "count"))
+        .agg(sale_amount=("adj_PRICE", "sum"), sale_count=("adj_PRICE", "count"))
         .reset_index()
     )
 
@@ -58,6 +65,7 @@ def process_prefix(prefix, data_folder, csv_writer):
                 "USD",
             ]
         )
+
 
 
 def main():
