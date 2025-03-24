@@ -31,22 +31,37 @@ def process_prefix(prefix, data_folder, csv_writer):
             store_name = df_str.iloc[0]['NAME']
 
     df_jnl = pd.read_csv(jnl_csv, dtype=str).fillna("")
-    # Convert PRICE column to numeric
     df_jnl["PRICE"] = pd.to_numeric(df_jnl["PRICE"], errors="coerce").fillna(0)
-    
-    # Create shifted columns for next and previous lines
+
+    # --- Filter for the previous month ---
+    import datetime
+    today = datetime.date.today()
+    first_of_this_month = today.replace(day=1)
+    prev_month_last_day = first_of_this_month - datetime.timedelta(days=1)
+    prev_month = prev_month_last_day.month
+    prev_year = prev_month_last_day.year
+
+    df_jnl["DATE_parsed"] = pd.to_datetime(df_jnl["DATE"], errors="coerce")
+    df_jnl = df_jnl[
+        (df_jnl["DATE_parsed"].dt.year == prev_year) &
+        (df_jnl["DATE_parsed"].dt.month == prev_month)
+    ]
+    # ---------------------------------------
+
     df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
     df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
     df_jnl["LINE_prev"] = df_jnl["LINE"].shift(1)
     df_jnl["PRICE_prev"] = df_jnl["PRICE"].shift(1)
 
-    # Filter for rows where current line is 950 and next line is 980
-    df_filtered = df_jnl[(df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")].copy()
-    
-    # Subtract the PRICE of the previous row if it is from line 941
-    df_filtered["adj_PRICE"] = df_filtered["PRICE"] - df_filtered["PRICE_prev"].where(df_filtered["LINE_prev"] == "941", 0)
-    
-    # Aggregate using the adjusted price
+    df_filtered = df_jnl[
+        (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
+    ].copy()
+
+    # Subtract the PRICE from the previous row if that row's LINE is 941
+    df_filtered["adj_PRICE"] = df_filtered["PRICE"] - df_filtered["PRICE_prev"].where(
+        df_filtered["LINE_prev"] == "941", 0
+    )
+
     report = (
         df_filtered.groupby(["DATE", "DESCRIPT_next"])
         .agg(sale_amount=("adj_PRICE", "sum"), sale_count=("adj_PRICE", "count"))
@@ -65,6 +80,7 @@ def process_prefix(prefix, data_folder, csv_writer):
                 "USD",
             ]
         )
+
 
 
 
