@@ -7,22 +7,31 @@ import pandas as pd
 EXTRACTED_ROOT = "/tmp/extracted"
 OUTPUT_CSV = "./reports/monthly_tenders_report.csv"
 
-def process_prefix(prefix, data_folder, csv_writer):
-    jnl_csv = os.path.join(data_folder, "jnl.csv")
-    str_csv = os.path.join(data_folder, "str.csv")
+import os
+import pandas as pd
 
-    if not os.path.exists(jnl_csv):
+def find_csv_case_insensitive(directory, filename):
+    filename_lower = filename.lower()
+    for f in os.listdir(directory):
+        if f.lower() == filename_lower:
+            return os.path.join(directory, f)
+    return None
+
+def process_prefix(prefix, data_folder, csv_writer):
+    jnl_csv = find_csv_case_insensitive(data_folder, "jnl.csv")
+    str_csv = find_csv_case_insensitive(data_folder, "str.csv")
+
+    if not jnl_csv:
         raise FileNotFoundError(f"{prefix}: jnl.csv not found")
 
     store_name = "UnknownStore"
-    if os.path.exists(str_csv):
+    if str_csv:
         df_str = pd.read_csv(str_csv)
         if 'NAME' in df_str.columns and not df_str.empty:
             store_name = df_str.iloc[0]['NAME']
 
     df_jnl = pd.read_csv(jnl_csv, dtype=str).fillna("")
 
-    # Add shifted LINE and DESCRIPT to detect consecutive 950->980 rows
     df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
     df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
 
@@ -49,6 +58,7 @@ def process_prefix(prefix, data_folder, csv_writer):
                 "USD",
             ]
         )
+
 
 def main():
     prefixes = [d for d in os.listdir(EXTRACTED_ROOT) if os.path.isdir(os.path.join(EXTRACTED_ROOT, d))]
