@@ -9,17 +9,23 @@ def is_junk_row(record):
 
 def convert(dbf_path, csv_path):
     try:
-        table = DBF(dbf_path, encoding='latin1', ignore_missing_memofile=True)
+        table = DBF(
+            dbf_path,
+            encoding='latin1',
+            ignore_missing_memofile=True,
+            ignore_invalid_dates=True  # Skip invalid b'\x00' dates
+        )
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(table.field_names)
             for record in table:
                 if is_junk_row(record):
-                    continue  # Skip junk rows
+                    continue
                 writer.writerow(list(record.values()))
     except Exception as e:
         print(f"Conversion failed explicitly: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
