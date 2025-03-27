@@ -57,10 +57,9 @@ def process_prefix(prefix, data_folder, csv_writer):
         (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
     ].copy()
 
-    # Subtract the PRICE from the previous row if that row's LINE is 941
-    df_filtered["adj_PRICE"] = df_filtered["PRICE"] - df_filtered["PRICE_prev"].where(
-        df_filtered["LINE_prev"] == "941", 0
-    )
+    
+    df_filtered["adj_PRICE"] = df_filtered["PRICE"]
+    
 
     report = (
         df_filtered.groupby(["DATE", "DESCRIPT_next"])
