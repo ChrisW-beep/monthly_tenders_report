@@ -25,6 +25,15 @@ def process_prefix(prefix, data_folder, csv_writer):
         raise FileNotFoundError(f"{prefix}: jnl.csv not found")
 
     store_name = "UnknownStore"
+    merchant_id = "UNKNOWN"
+    ini_path = find_csv_case_insensitive(data_folder, "spirits.ini")
+    if ini_path and os.path.isfile(ini_path):
+        with open(ini_path) as f:
+            for line in f:
+                if line.strip().startswith("DCMERCHANTID="):
+                    merchant_id = line.strip().split("=", 1)[1]
+                    break
+
     if str_csv:
         df_str = pd.read_csv(str_csv)
         if 'NAME' in df_str.columns and not df_str.empty:
@@ -77,6 +86,7 @@ def process_prefix(prefix, data_folder, csv_writer):
                 row["sale_amount"],
                 row["sale_count"],
                 "USD",
+                merchant_id  # New column
             ]
         )
 
@@ -90,7 +100,7 @@ def main():
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow(
-            ["Astoreid", "Storename", "date", "Type", "sale_amount", "sale_count", "currency"]
+            ["Astoreid", "Storename", "date", "Type", "sale_amount", "sale_count", "currency","merchant_id"]
         )
 
         for prefix in prefixes:
