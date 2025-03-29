@@ -2,6 +2,7 @@
 import sys
 import csv
 from dbfread import DBF, FieldParser
+import decimal
 
 class SafeFieldParser(FieldParser):
     def parseD(self, field, data):
@@ -22,16 +23,11 @@ class SafeFieldParser(FieldParser):
         except Exception:
             return 0.0
 
+
+
 def convert(dbf_path, csv_path):
     try:
-       table = DBF(
-        dbf_path,
-        encoding='latin1',
-        ignore_missing_memofile=True,
-        parserclass=SafeFieldParser,
-        ignore_deletion_flag=False  # This will EXCLUDE deleted records
-    )
-
+        table = DBF(dbf_path, encoding='latin1', ignore_missing_memofile=True, parserclass=SafeFieldParser)
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(table.field_names)
@@ -45,15 +41,20 @@ def convert(dbf_path, csv_path):
                                 clean_values.append(value.decode('latin1').strip())
                             except:
                                 clean_values.append("")
+                        elif isinstance(value, (float, decimal.Decimal)):
+                            clean_values.append(f"{value:.4f}")  # consistent precision, avoids scientific notation
                         else:
                             clean_values.append(value)
                     writer.writerow(clean_values)
+
                 except Exception as row_error:
                     print(f"⚠️ Skipping bad record in {dbf_path}: {row_error}")
                     continue
+
     except Exception as e:
         print(f"❌ Conversion failed explicitly for {dbf_path}: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
