@@ -27,7 +27,7 @@ class SafeFieldParser(FieldParser):
 
 def convert(dbf_path, csv_path):
     try:
-        table = DBF(dbf_path, encoding='latin1', ignore_missing_memofile=True,ignore_deletion_flag=False, parserclass=SafeFieldParser)
+        table = DBF(dbf_path, encoding='latin1', ignore_missing_memofile=True,ignore_deleted=False, parserclass=SafeFieldParser)
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(table.field_names)
