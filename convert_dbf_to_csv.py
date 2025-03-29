@@ -5,6 +5,16 @@ import decimal
 from dbfread import DBF, FieldParser
 
 class SafeFieldParser(FieldParser):
+    def parseN(self, field, data):
+        try:
+            return super().parseN(field, data)
+        except Exception:
+            return None
+    def parseF(self, field, data):
+        try:
+            return super().parseF(field, data)
+        except Exception:
+            return None
     def parseD(self, field, data):
         try:
             return super().parseD(field, data)
