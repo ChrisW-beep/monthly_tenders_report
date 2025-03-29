@@ -1,38 +1,34 @@
 #!/usr/bin/env python3
 import sys
 import csv
-from dbfread import DBF, FieldParser
 import decimal
+from dbfread import DBF, FieldParser
+from datetime import date
 
 class SafeFieldParser(FieldParser):
     def parseD(self, field, data):
         try:
             return super().parseD(field, data)
         except Exception:
-            return None
-
-    def parseN(self, field, data):
-        try:
-            return super().parseN(field, data)
-        except Exception:
-            return 0
-
-    def parseF(self, field, data):
-        try:
-            return super().parseF(field, data)
-        except Exception:
-            return 0.0
-
-
+            return None  # fallback for invalid date values
 
 def convert(dbf_path, csv_path):
     try:
-        table = DBF(dbf_path, encoding='latin1', ignore_missing_memofile=True,ignore_deleted=False, parserclass=SafeFieldParser)
+        table = DBF(
+            dbf_path,
+            encoding='latin1',
+            ignore_missing_memofile=True,
+            parserclass=SafeFieldParser
+        )
+
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(table.field_names)
 
             for record in table:
+                if record.get('_deleted', False):
+                    continue  # skip deleted records
+
                 try:
                     clean_values = []
                     for value in record.values():
@@ -41,8 +37,8 @@ def convert(dbf_path, csv_path):
                                 clean_values.append(value.decode('latin1').strip())
                             except:
                                 clean_values.append("")
-                        elif isinstance(value, (float, decimal.Decimal)):
-                            clean_values.append(f"{value:.4f}")  # consistent precision, avoids scientific notation
+                        elif isinstance(value, decimal.Decimal):
+                            clean_values.append(float(value))
                         else:
                             clean_values.append(value)
                     writer.writerow(clean_values)
@@ -54,7 +50,6 @@ def convert(dbf_path, csv_path):
     except Exception as e:
         print(f"❌ Conversion failed explicitly for {dbf_path}: {e}")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
