@@ -8,10 +8,19 @@ class SafeFieldParser(FieldParser):
         try:
             return super().parseD(field, data)
         except Exception:
-            return None  # fallback for bad dates
+            return None
 
-def is_junk_row(row):
-    return all(str(v).strip() in ["", "0", "0.0"] for v in row)
+    def parseN(self, field, data):
+        try:
+            return super().parseN(field, data)
+        except Exception:
+            return 0
+
+    def parseF(self, field, data):
+        try:
+            return super().parseF(field, data)
+        except Exception:
+            return 0.0
 
 def convert(dbf_path, csv_path):
     try:
@@ -21,32 +30,25 @@ def convert(dbf_path, csv_path):
             ignore_missing_memofile=True,
             parserclass=SafeFieldParser
         )
-
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(table.field_names)
 
             for record in table:
                 try:
-                    row = []
+                    clean_values = []
                     for value in record.values():
                         if isinstance(value, bytes):
                             try:
-                                row.append(value.decode('latin1').strip())
+                                clean_values.append(value.decode('latin1').strip())
                             except:
-                                row.append("")
+                                clean_values.append("")
                         else:
-                            row.append(value)
-
-                    if is_junk_row(row):
-                        continue
-
-                    writer.writerow(row)
-
+                            clean_values.append(value)
+                    writer.writerow(clean_values)
                 except Exception as row_error:
                     print(f"⚠️ Skipping bad record in {dbf_path}: {row_error}")
                     continue
-
     except Exception as e:
         print(f"❌ Conversion failed explicitly for {dbf_path}: {e}")
         sys.exit(1)
