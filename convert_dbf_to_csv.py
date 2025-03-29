@@ -3,7 +3,6 @@ import sys
 import csv
 import decimal
 from dbfread import DBF, FieldParser
-from datetime import date
 
 class SafeFieldParser(FieldParser):
     def parseD(self, field, data):
@@ -20,41 +19,42 @@ def convert(dbf_path, csv_path):
             ignore_missing_memofile=True,
             parserclass=SafeFieldParser
         )
-
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(table.field_names)
 
-            for record in table:
-                if record.get('_deleted', False):
-                    continue  # skip deleted rows
+            written = 0
+            skipped = 0
 
+            for record in table:
                 try:
-                    clean_values = []
+                    if record.get("_deleted", False):
+                        skipped += 1
+                        continue
+
+                    row_values = []
                     for value in record.values():
                         try:
                             if isinstance(value, bytes):
                                 value = value.decode('latin1', errors='ignore').strip()
                             elif isinstance(value, decimal.Decimal):
                                 value = float(value)
-                            elif isinstance(value, str):
-                                try:
-                                    float(value)  # probe for numeric value
-                                except:
-                                    pass  # keep string as-is
-                            clean_values.append(value)
-                        except Exception as val_err:
-                            print(f"⚠️ Skipping bad field value: {val_err}")
-                            clean_values.append("")  # fallback blank field
+                        except:
+                            value = ""
+                        row_values.append(value)
 
-                    writer.writerow(clean_values)
+                    writer.writerow(row_values)
+                    written += 1
 
-                except Exception as row_error:
-                    print(f"⚠️ Skipping bad record in {dbf_path}: {row_error}")
+                except Exception as row_err:
+                    print(f"⚠️ Skipping bad record in {dbf_path}: {row_err}", flush=True)
+                    skipped += 1
                     continue
 
+            print(f"✅ Finished {dbf_path}: written={written}, skipped={skipped}", flush=True)
+
     except Exception as e:
-        print(f"❌ Conversion failed explicitly for {dbf_path}: {e}")
+        print(f"❌ Conversion failed explicitly for {dbf_path}: {e}", flush=True)
         sys.exit(1)
 
 if __name__ == "__main__":
