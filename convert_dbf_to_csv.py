@@ -10,7 +10,7 @@ class SafeFieldParser(FieldParser):
         try:
             return super().parseD(field, data)
         except Exception:
-            return None  # fallback for invalid date values
+            return None  # fallback for invalid dates
 
 def convert(dbf_path, csv_path):
     try:
@@ -27,7 +27,7 @@ def convert(dbf_path, csv_path):
 
             for record in table:
                 if record.get('_deleted', False):
-                    continue  # skip deleted records
+                    continue  # skip deleted rows
 
                 try:
                     clean_values = []
@@ -38,7 +38,16 @@ def convert(dbf_path, csv_path):
                             except:
                                 clean_values.append("")
                         elif isinstance(value, decimal.Decimal):
-                            clean_values.append(float(value))
+                            try:
+                                clean_values.append(float(value))
+                            except:
+                                clean_values.append(0.0)
+                        elif isinstance(value, str):
+                            try:
+                                # If a string is accidentally numeric-like
+                                clean_values.append(float(value) if value.replace(".", "", 1).isdigit() else value)
+                            except:
+                                clean_values.append(value)
                         else:
                             clean_values.append(value)
                     writer.writerow(clean_values)
