@@ -10,7 +10,7 @@ class SafeFieldParser(FieldParser):
         try:
             return super().parseD(field, data)
         except Exception:
-            return None  # fallback for invalid dates
+            return None
 
 def convert(dbf_path, csv_path):
     try:
@@ -32,24 +32,21 @@ def convert(dbf_path, csv_path):
                 try:
                     clean_values = []
                     for value in record.values():
-                        if isinstance(value, bytes):
-                            try:
-                                clean_values.append(value.decode('latin1').strip())
-                            except:
-                                clean_values.append("")
-                        elif isinstance(value, decimal.Decimal):
-                            try:
-                                clean_values.append(float(value))
-                            except:
-                                clean_values.append(0.0)
-                        elif isinstance(value, str):
-                            try:
-                                # If a string is accidentally numeric-like
-                                clean_values.append(float(value) if value.replace(".", "", 1).isdigit() else value)
-                            except:
-                                clean_values.append(value)
-                        else:
+                        try:
+                            if isinstance(value, bytes):
+                                value = value.decode('latin1', errors='ignore').strip()
+                            elif isinstance(value, decimal.Decimal):
+                                value = float(value)
+                            elif isinstance(value, str):
+                                try:
+                                    float(value)  # probe for numeric value
+                                except:
+                                    pass  # keep string as-is
                             clean_values.append(value)
+                        except Exception as val_err:
+                            print(f"⚠️ Skipping bad field value: {val_err}")
+                            clean_values.append("")  # fallback blank field
+
                     writer.writerow(clean_values)
 
                 except Exception as row_error:
