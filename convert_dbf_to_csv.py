@@ -4,22 +4,33 @@ import csv
 import decimal
 from dbfread import DBF, FieldParser
 
+from dbfread import DBF, FieldParser
+
 class SafeFieldParser(FieldParser):
-    def parseN(self, field, data):
-        try:
-            return super().parseN(field, data)
-        except Exception:
-            return None
-    def parseF(self, field, data):
-        try:
-            return super().parseF(field, data)
-        except Exception:
-            return None
-    def parseD(self, field, data):
+    def parseD(self, field, data):  # Date field
         try:
             return super().parseD(field, data)
         except Exception:
             return None
+
+    def parseN(self, field, data):  # Numeric field
+        try:
+            return super().parseN(field, data)
+        except Exception:
+            return None
+
+    def parseF(self, field, data):  # Float field
+        try:
+            return super().parseF(field, data)
+        except Exception:
+            return None
+
+    def parseL(self, field, data):  # Logical field (e.g., VOIDED)
+        try:
+            return super().parseL(field, data)
+        except Exception:
+            return None  # Skip malformed logical
+
 
 def convert(dbf_path, csv_path):
     try:
