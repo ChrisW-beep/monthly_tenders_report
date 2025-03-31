@@ -49,12 +49,13 @@ def extract_cardinterface(prefix):
         obj = s3.get_object(Bucket=BUCKET_NAME, Key=ini_key)
         content = obj["Body"].read().decode("utf-8")
         for line in content.splitlines():
-            if line.startswith("CardInterface="):
+            if line.lower().startswith("cardinterface="):
                 value = line.split("=", 1)[1].strip()
-                return f'"{value}"'  # ✅ wrap in quotes to preserve as string
+                return f'"{value}"'
     except s3.exceptions.NoSuchKey:
         return '"UnknownCardInterface"'
     return '"UnknownCardInterface"'
+
 
 
 def process_prefix(prefix, csv_writer):
