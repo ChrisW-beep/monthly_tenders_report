@@ -7,7 +7,7 @@ import pandas as pd
 from configparser import ConfigParser
 from datetime import datetime, timedelta
 
-BUCKET_NAME = "spiritsbackups"
+BUCKET_NAME = "spiritsbucketdev"
 PREFIX_BASE = "processed_csvs/"
 OUTPUT_CSV = "./reports/monthly_tenders_report.csv"
 
@@ -43,6 +43,18 @@ def extract_dcprocessor(prefix):
         return '"UnknownProcessor"'
     return '"UnknownProcessor"'
 
+def extract_cardinterfaace(prefix):
+    ini_key = f"{PREFIX_BASE}{prefix}/spirits.ini"
+    try:
+        obj = s3.get_object(Bucket=BUCKET_NAME, Key=ini_key)
+        content = obj["Body"].read().decode("utf-8")
+        for line in content.splitlines():
+            if line.startswith("CARDINTERFACE="):
+                value = line.split("=", 1)[1].strip()
+                return f'"{value}"'  # ✅ wrap in quotes to preserve as string
+    except s3.exceptions.NoSuchKey:
+        return '"UnknownCardInterface"'
+    return '"UnknownCardInterface"'
 
 
 def process_prefix(prefix, csv_writer):
@@ -93,6 +105,8 @@ def process_prefix(prefix, csv_writer):
         )
 
         merchant_id = extract_dcmerchantid(prefix)
+        ccprocessor = extract_dcprocessor(prefix)
+        cardinterface = extract_cardinterface(prefix)
 
         for _, row in report.iterrows():
             csv_writer.writerow([
@@ -104,6 +118,7 @@ def process_prefix(prefix, csv_writer):
                 row["DESCRIPT_next"],
                 row["sale_amount"],
                 row["sale_count"],
+                cardinterface,
                 "USD",
             ])
     except Exception as e:
@@ -123,7 +138,7 @@ def main():
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         csv_writer = csv.writer(f)
-        csv_writer.writerow(["Astoreid", "Storename", "MerchantID","CCProcessor" "date", "Type", "sale_amount", "sale_count", "currency"])
+        csv_writer.writerow(["Astoreid", "Storename", "MerchantID","CCProcessor", "date", "Type", "sale_amount", "sale_count","CardInterface", "currency"])
 
         for prefix in sorted(prefixes):
             print(f"▶️ Processing {prefix}", flush=True)
