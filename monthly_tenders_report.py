@@ -7,7 +7,7 @@ import pandas as pd
 from configparser import ConfigParser
 from datetime import datetime, timedelta
 
-BUCKET_NAME = "spiritsbucketsdev"
+BUCKET_NAME = "spiritsbucketdev"
 PREFIX_BASE = "processed_csvs/"
 OUTPUT_CSV = "./reports/monthly_tenders_report.csv"
 
