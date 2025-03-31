@@ -43,7 +43,7 @@ def extract_dcprocessor(prefix):
         return '"UnknownProcessor"'
     return '"UnknownProcessor"'
 
-def extract_cardinterfaace(prefix):
+def extract_cardinterface(prefix):
     ini_key = f"{PREFIX_BASE}{prefix}/spirits.ini"
     try:
         obj = s3.get_object(Bucket=BUCKET_NAME, Key=ini_key)
