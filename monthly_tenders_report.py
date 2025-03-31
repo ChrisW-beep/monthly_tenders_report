@@ -24,10 +24,12 @@ def extract_dcmerchantid(prefix):
         content = obj["Body"].read().decode("utf-8")
         for line in content.splitlines():
             if line.startswith("DCMERCHANTID="):
-                return line.split("=", 1)[1].strip()  # ✅ split only at first =
+                value = line.split("=", 1)[1].strip()
+                return f'"{value}"'  # ✅ wrap in quotes to preserve as string
     except s3.exceptions.NoSuchKey:
-        return "UnknownMerchant"
-    return "UnknownMerchant"
+        return '"UnknownMerchant"'
+    return '"UnknownMerchant"'
+
 
 
 def process_prefix(prefix, csv_writer):
