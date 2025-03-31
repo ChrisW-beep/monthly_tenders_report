@@ -52,12 +52,16 @@ def process_prefix(prefix, csv_writer):
 
         df_jnl["DATE_parsed"] = pd.to_datetime(df_jnl["DATE"], errors="coerce")
         df_jnl = df_jnl[
-            (df_jnl["DATE_parsed"].dt.year == prev_year) &
-            (df_jnl["DATE_parsed"].dt.month == prev_month)
+        (df_jnl["DATE_parsed"].dt.year == prev_year) &
+        (df_jnl["DATE_parsed"].dt.month == prev_month)
         ]
+
+        # ⛔ Skip rows where RFLAG is not 0 (i.e., voids, returns, etc.)
+        df_jnl = df_jnl[df_jnl["RFLAG"] == "0"]
 
         df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
         df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
+
 
         df_filtered = df_jnl[
             (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
