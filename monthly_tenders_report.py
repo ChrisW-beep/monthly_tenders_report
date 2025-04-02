@@ -27,8 +27,8 @@ def extract_dcmerchantid(prefix):
                 value = line.split("=", 1)[1].strip()
                 return f'"{value}"'  # ✅ wrap in quotes to preserve as string
     except s3.exceptions.NoSuchKey:
-        return '"UnknownMerchant"'
-    return '"UnknownMerchant"'
+        return '"N/A"'
+    return '"N/A"'
 
 def extract_dcprocessor(prefix):
     ini_key = f"{PREFIX_BASE}{prefix}/spirits.ini"
@@ -40,8 +40,8 @@ def extract_dcprocessor(prefix):
                 value = line.split("=", 1)[1].strip()
                 return f'"{value}"'  # ✅ wrap in quotes to preserve as string
     except s3.exceptions.NoSuchKey:
-        return '"UnknownProcessor"'
-    return '"UnknownProcessor"'
+        return '"N/A"'
+    return '"N/A"'
 
 def extract_cardinterface(prefix):
     ini_key = f"{PREFIX_BASE}{prefix}/spirits.ini"
@@ -53,8 +53,8 @@ def extract_cardinterface(prefix):
                 value = line.split("=", 1)[1].strip()
                 return f'"{value}"'
     except s3.exceptions.NoSuchKey:
-        return '"UnknownCardInterface"'
-    return '"UnknownCardInterface"'
+        return '"N/A"'
+    return '"N/A"'
 
 
 
