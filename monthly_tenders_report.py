@@ -60,18 +60,23 @@ def extract_cardinterface(prefix):
 
 def process_prefix(prefix, csv_writer):
     try:
+        print(f"🔄 Starting prefix {prefix}", flush=True)
+
         jnl_key = f"{PREFIX_BASE}{prefix}/jnl.csv"
         str_key = f"{PREFIX_BASE}{prefix}/str.csv"
 
+        print("📥 Streaming jnl.csv from S3...", flush=True)
         df_jnl = stream_csv_from_s3(jnl_key)
         df_jnl["PRICE"] = pd.to_numeric(df_jnl["PRICE"], errors="coerce").fillna(0)
 
         store_name = "UnknownStore"
         try:
+            print("📥 Streaming str.csv from S3...", flush=True)
             df_str = stream_csv_from_s3(str_key)
             if "NAME" in df_str.columns and not df_str.empty:
                 store_name = df_str.iloc[0]["NAME"]
         except Exception:
+            print("⚠️ Could not load store name", flush=True)
             pass
 
         today = datetime.today()
@@ -79,36 +84,39 @@ def process_prefix(prefix, csv_writer):
         prev_month = prev_month_last_day.month
         prev_year = prev_month_last_day.year
 
+        print("📅 Filtering records for previous month...", flush=True)
         df_jnl["DATE_parsed"] = pd.to_datetime(df_jnl["DATE"], errors="coerce")
         df_jnl = df_jnl[
-        (df_jnl["DATE_parsed"].dt.year == prev_year) &
-        (df_jnl["DATE_parsed"].dt.month == prev_month)
+            (df_jnl["DATE_parsed"].dt.year == prev_year) &
+            (df_jnl["DATE_parsed"].dt.month == prev_month)
         ]
 
-        # ⛔ Skip rows where RFLAG is not 0 (i.e., voids, returns, etc.)
+        print("🚫 Removing voided or return rows (RFLAG != 0)...", flush=True)
         df_jnl = df_jnl[df_jnl["RFLAG"] == "0"]
 
         df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
         df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
 
-
+        print("📊 Filtering for LINE 950 + LINE 980 pairs...", flush=True)
         df_filtered = df_jnl[
             (df_jnl["LINE"] == "950") & (df_jnl["LINE_next"] == "980")
         ].copy()
 
-        # No adjustment from 941 anymore, just use 950's total
         df_filtered["adj_PRICE"] = df_filtered["PRICE"]
 
+        print("📈 Grouping by DATE and DESCRIPT_next...", flush=True)
         report = (
             df_filtered.groupby(["DATE", "DESCRIPT_next"])
             .agg(sale_amount=("adj_PRICE", "sum"), sale_count=("adj_PRICE", "count"))
             .reset_index()
         )
 
+        print("🔍 Extracting INI values...", flush=True)
         merchant_id = extract_dcmerchantid(prefix)
         ccprocessor = extract_dcprocessor(prefix)
         cardinterface = extract_cardinterface(prefix)
 
+        print(f"📝 Writing rows for {prefix}...", flush=True)
         for _, row in report.iterrows():
             csv_writer.writerow([
                 prefix,
@@ -122,8 +130,12 @@ def process_prefix(prefix, csv_writer):
                 cardinterface,
                 "USD",
             ])
+
+        print(f"✅ Finished prefix {prefix}", flush=True)
+
     except Exception as e:
         print(f"❌ Failed to process {prefix}: {e}", flush=True)
+
 
 def main():
     paginator = s3.get_paginator("list_objects_v2")
