@@ -77,7 +77,6 @@ def process_prefix(prefix, csv_writer):
                 store_name = df_str.iloc[0]["NAME"]
         except Exception:
             print("⚠️ Could not load store name", flush=True)
-            pass
 
         today = datetime.today()
         prev_month_last_day = today.replace(day=1) - timedelta(days=1)
@@ -91,9 +90,6 @@ def process_prefix(prefix, csv_writer):
             (df_jnl["DATE_parsed"].dt.month == prev_month)
         ]
 
-        print("🚫 Removing voided or return rows (RFLAG != 0)...", flush=True)
-        df_jnl = df_jnl[df_jnl["RFLAG"] == "0"]
-
         df_jnl["LINE_next"] = df_jnl["LINE"].shift(-1)
         df_jnl["DESCRIPT_next"] = df_jnl["DESCRIPT"].shift(-1)
 
@@ -103,11 +99,23 @@ def process_prefix(prefix, csv_writer):
         ].copy()
 
         df_filtered["adj_PRICE"] = df_filtered["PRICE"]
+        df_filtered["is_return"] = df_filtered["adj_PRICE"] < 0
+
+        # Classify sale and reversal amounts
+        df_filtered["sale_amount"] = df_filtered.apply(lambda row: row["adj_PRICE"] if not row["is_return"] else 0, axis=1)
+        df_filtered["sale_count"] = df_filtered.apply(lambda row: 1 if not row["is_return"] else 0, axis=1)
+        df_filtered["reversal_amount"] = df_filtered.apply(lambda row: abs(row["adj_PRICE"]) if row["is_return"] else 0, axis=1)
+        df_filtered["reversal_count"] = df_filtered.apply(lambda row: 1 if row["is_return"] else 0, axis=1)
 
         print("📈 Grouping by DATE and DESCRIPT_next...", flush=True)
         report = (
             df_filtered.groupby(["DATE", "DESCRIPT_next"])
-            .agg(sale_amount=("adj_PRICE", "sum"), sale_count=("adj_PRICE", "count"))
+            .agg(
+                sale_amount=("sale_amount", "sum"),
+                sale_count=("sale_count", "sum"),
+                reversal_amount=("reversal_amount", "sum"),
+                reversal_count=("reversal_count", "sum")
+            )
             .reset_index()
         )
 
@@ -127,11 +135,17 @@ def process_prefix(prefix, csv_writer):
                 row["DESCRIPT_next"],
                 row["sale_amount"],
                 row["sale_count"],
+                row["reversal_amount"],
+                row["reversal_count"],
                 cardinterface,
                 "USD",
             ])
 
         print(f"✅ Finished prefix {prefix}", flush=True)
+
+    except Exception as e:
+        print(f"❌ Failed to process {prefix}: {e}", flush=True)
+
 
     except Exception as e:
         print(f"❌ Failed to process {prefix}: {e}", flush=True)
@@ -151,7 +165,10 @@ def main():
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         csv_writer = csv.writer(f)
-        csv_writer.writerow(["Astoreid", "Storename", "MerchantID","CCProcessor", "date", "Type", "sale_amount", "sale_count","CardInterface", "currency"])
+        csv_writer.writerow([
+        "Astoreid", "Storename", "MerchantID", "CCProcessor", "date", "Type",
+        "sale_amount", "sale_count", "reversal_amount", "reversal_count", "CardInterface", "currency"])
+
 
         for prefix in sorted(prefixes):
             print(f"▶️ Processing {prefix}", flush=True)
