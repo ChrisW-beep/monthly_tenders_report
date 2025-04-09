@@ -147,10 +147,7 @@ def process_prefix(prefix, csv_writer):
         print(f"❌ Failed to process {prefix}: {e}", flush=True)
 
 
-    except Exception as e:
-        print(f"❌ Failed to process {prefix}: {e}", flush=True)
-
-
+    
 def main():
     paginator = s3.get_paginator("list_objects_v2")
     result = paginator.paginate(Bucket=BUCKET_NAME, Prefix=PREFIX_BASE, Delimiter="/")
