@@ -162,19 +162,36 @@ def main():
                 prefix = p["Prefix"].split("/")[-2]
                 prefixes.append(prefix)
 
+    failed_prefixes = []
+
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow([
-        "Astoreid", "Storename", "MerchantID", "CCProcessor", "date", "Type",
-        "sale_amount", "sale_count", "reversal_amount", "reversal_count", "CardInterface", "currency"])
-
+            "Astoreid", "Storename", "MerchantID", "CCProcessor", "date", "Type",
+            "sale_amount", "sale_count", "reversal_amount", "reversal_count", "CardInterface", "currency"
+        ])
 
         for prefix in sorted(prefixes):
             print(f"▶️ Processing {prefix}", flush=True)
-            process_prefix(prefix, csv_writer)
+            try:
+                process_prefix(prefix, csv_writer)
+            except Exception as e:
+                failed_prefixes.append(prefix)
+                print(f"❌ Failed to process {prefix}: {e}", flush=True)
+
+    # Write failure log
+    if failed_prefixes:
+        fail_log_path = "./reports/failed_prefixes.log"
+        with open(fail_log_path, "w") as fail_log:
+            for prefix in failed_prefixes:
+                fail_log.write(f"{prefix}\n")
+        print(f"🚨 {len(failed_prefixes)} prefixes failed. See {fail_log_path}", flush=True)
+    else:
+        print("✅ All prefixes processed successfully.", flush=True)
 
     print(f"✅ Report written to {OUTPUT_CSV}", flush=True)
+
 
 if __name__ == "__main__":
     main()
